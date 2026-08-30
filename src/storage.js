@@ -72,3 +72,16 @@ export function onSettingsChanged(callback) {
   chrome.storage.onChanged.addListener(listener);
   return () => chrome.storage.onChanged.removeListener(listener);
 }
+
+// --- playlist cache -------------------------------------------------------
+// Lives in chrome.storage.local: a 300-video ID list would blow straight past
+// sync's 8 KB per-item cap. Written by the content script while you're on the
+// playlist page (Stage 5), read by the navigation gate.
+
+/** Read the cache, or null if it's missing or belongs to a different playlist. */
+export async function getPlaylistCache(id = null) {
+  const { playlistCache } = await chrome.storage.local.get('playlistCache');
+  if (!playlistCache) return null;
+  if (id && playlistCache.id !== id) return null;
+  return playlistCache;
+}
