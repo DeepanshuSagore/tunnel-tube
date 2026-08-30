@@ -193,3 +193,13 @@ body.is-on .tt-state {
   color: var(--tt-muted);
   cursor: default;
 }
+
+.tt-index {
+  margin: 8px 0 0;
+  color: var(--tt-muted);
+  font-size: 11px;
+}
+
+.tt-index.is-complete {
+  color: var(--tt-on);
+}

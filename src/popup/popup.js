@@ -1,5 +1,5 @@
-import { getSettings, setSettings, onSettingsChanged } from '../storage.js';
-import { parsePlaylistId, playlistUrl } from '../matcher.js';
+import { getSettings, setSettings, getPlaylistCache, onSettingsChanged } from '../storage.js';
+import { parsePlaylistId, playlistUrl, isCacheComplete } from '../matcher.js';
 
 const enabled = document.getElementById('tt-enabled');
 const state = document.getElementById('tt-state');
@@ -8,6 +8,7 @@ const playlistSection = document.getElementById('tt-playlist-section');
 const playlistInput = document.getElementById('tt-playlist');
 const playlistError = document.getElementById('tt-playlist-error');
 const openPlaylist = document.getElementById('tt-open');
+const index = document.getElementById('tt-index');
 const openOptions = document.getElementById('tt-options');
 
 /** Paint the controls from settings. Called on open and on any external change. */
@@ -25,6 +26,30 @@ function render(settings) {
     playlistInput.value = settings.playlist.id;
   }
   openPlaylist.disabled = !settings.playlist.id;
+  renderIndex(settings.playlist.id);
+}
+
+/**
+ * How much of the playlist has been scraped. Until it's complete the lock lets
+ * any video through, so it's worth saying so out loud rather than leaving the
+ * user to wonder why a stray video played.
+ */
+async function renderIndex(playlistId) {
+  if (!playlistId) {
+    index.textContent = '';
+    return;
+  }
+  const cache = await getPlaylistCache(playlistId);
+  const complete = isCacheComplete(cache, playlistId);
+  index.classList.toggle('is-complete', complete);
+  if (!cache) {
+    index.textContent = 'Not indexed yet — open the playlist and scroll to the end.';
+  } else if (complete) {
+    index.textContent = `Indexed ${cache.videoIds.length} videos — off-list videos are blocked.`;
+  } else {
+    const total = cache.count ? ` of ${cache.count}` : '';
+    index.textContent = `Indexed ${cache.videoIds.length}${total} — scroll the playlist to finish.`;
+  }
 }
 
 render(await getSettings());
@@ -68,3 +93,10 @@ openOptions.addEventListener('click', () => {
 // A second popup can't exist, but the options page or a future keyboard shortcut
 // can change these while we're open.
 onSettingsChanged(render);
+
+// The scrape runs in the YouTube tab; refresh the count as it lands.
+chrome.storage.onChanged.addListener(async (changes, area) => {
+  if (area !== 'local' || !('playlistCache' in changes)) return;
+  const { playlist } = await getSettings();
+  renderIndex(playlist.id);
+});
