@@ -14,9 +14,30 @@
     <label class="tt-toggle" for="tt-enabled">
       <input id="tt-enabled" type="checkbox" />
       <span>Tunnel vision</span>
+      <span class="tt-state" id="tt-state">off</span>
     </label>
 
-    <p class="tt-hint">Not wired to storage yet — that lands in Stage 2.</p>
+    <fieldset class="tt-modes" id="tt-modes">
+      <legend>Lock mode</legend>
+      <label>
+        <input type="radio" name="tt-mode" value="topic" />
+        <span>
+          Topic
+          <em>only videos matching your keywords</em>
+        </span>
+      </label>
+      <label>
+        <input type="radio" name="tt-mode" value="playlist" />
+        <span>
+          Playlist
+          <em>one playlist, nothing else</em>
+        </span>
+      </label>
+    </fieldset>
+
+    <footer class="tt-footer">
+      <button type="button" id="tt-options" class="tt-link">Settings</button>
+    </footer>
 
     <script src="popup.js" type="module"></script>
   </body>

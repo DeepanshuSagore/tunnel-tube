@@ -5,6 +5,7 @@
   --tt-muted: #6b7080;
   --tt-line: #e3e5ec;
   --tt-accent: #ffc857;
+  --tt-on: #1f9d55;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -13,13 +14,14 @@
     --tt-fg: #f2f3f7;
     --tt-muted: #9aa0b4;
     --tt-line: #2b2f47;
+    --tt-on: #3ddc84;
   }
 }
 
 body {
   width: 260px;
   margin: 0;
-  padding: 14px 16px 16px;
+  padding: 14px 16px 12px;
   background: var(--tt-bg);
   color: var(--tt-fg);
   font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -60,8 +62,71 @@ body {
   margin: 0;
 }
 
-.tt-hint {
-  margin: 10px 0 0;
+.tt-state {
+  margin-left: auto;
   color: var(--tt-muted);
   font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+body.is-on .tt-state {
+  color: var(--tt-on);
+}
+
+.tt-modes {
+  margin: 14px 0 0;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--tt-line);
+  border-radius: 8px;
+}
+
+.tt-modes legend {
+  padding: 0 4px;
+  color: var(--tt-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.tt-modes label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.tt-modes input {
+  accent-color: var(--tt-accent);
+  margin: 2px 0 0;
+}
+
+.tt-modes em {
+  display: block;
+  color: var(--tt-muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.tt-footer {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--tt-line);
+}
+
+.tt-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--tt-muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.tt-link:hover {
+  color: var(--tt-fg);
+  text-decoration: underline;
 }
