@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "TunnelTube",
+  "version": "0.1.0",
+  "description": "Tunnel vision for YouTube — lock the whole site to one topic or one playlist while you work.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "TunnelTube",
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_page": "src/options/options.html",
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://www.youtube.com/*"],
+      "run_at": "document_start",
+      "js": ["src/content/content.js"],
+      "css": ["src/content/content.css"]
+    }
+  ],
+  "permissions": ["storage", "tabs", "webNavigation"],
+  "host_permissions": ["*://*.youtube.com/*"]
+}
