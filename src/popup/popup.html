@@ -35,6 +35,21 @@
       </label>
     </fieldset>
 
+    <section class="tt-playlist" id="tt-playlist-section" hidden>
+      <label class="tt-field" for="tt-playlist">
+        <span>Playlist URL or ID</span>
+        <input
+          id="tt-playlist"
+          type="text"
+          spellcheck="false"
+          autocomplete="off"
+          placeholder="youtube.com/playlist?list=..."
+        />
+      </label>
+      <p class="tt-error" id="tt-playlist-error" hidden>That doesn't contain a playlist ID.</p>
+      <button type="button" id="tt-open" class="tt-button">Open my playlist</button>
+    </section>
+
     <footer class="tt-footer">
       <button type="button" id="tt-options" class="tt-link">Settings</button>
     </footer>

@@ -130,3 +130,66 @@ body.is-on .tt-state {
   color: var(--tt-fg);
   text-decoration: underline;
 }
+
+.tt-playlist {
+  margin-top: 12px;
+}
+
+.tt-field {
+  display: block;
+}
+
+.tt-field span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--tt-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.tt-field input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--tt-line);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+}
+
+.tt-field input:focus-visible {
+  outline: 2px solid var(--tt-accent);
+  outline-offset: -1px;
+}
+
+.tt-error {
+  margin: 6px 0 0;
+  color: #d93025;
+  font-size: 11px;
+}
+
+.tt-button {
+  width: 100%;
+  margin-top: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--tt-line);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.tt-button:hover:not(:disabled) {
+  border-color: var(--tt-accent);
+}
+
+.tt-button:disabled {
+  color: var(--tt-muted);
+  cursor: default;
+}
