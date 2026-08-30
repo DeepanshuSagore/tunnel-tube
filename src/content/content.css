@@ -1,3 +1,32 @@
-/* Inert on purpose. Every rule added from Stage 4 onwards must be gated behind
-   html.tt-playlist-lock (or a sibling state class) so this file changes nothing
-   while the extension is off. */
+/* Every rule is gated behind html.tt-playlist-lock, added by content.js, so this
+   file changes nothing while the extension is off — and turning it off restores
+   the page with no reload.
+
+   YouTube renames these elements regularly. When the lock stops hiding
+   something, this list is the only place to fix. */
+
+/* Guide sidebar and its hamburger, in both the full and mini variants. */
+html.tt-playlist-lock #guide,
+html.tt-playlist-lock tp-yt-app-drawer#guide,
+html.tt-playlist-lock #guide-button,
+html.tt-playlist-lock ytd-mini-guide-renderer,
+html.tt-playlist-lock #mini-guide,
+/* Masthead search — the fastest way out of the tunnel. */
+html.tt-playlist-lock ytd-searchbox,
+html.tt-playlist-lock #search-form,
+html.tt-playlist-lock #voice-search-button,
+html.tt-playlist-lock ytd-masthead #center,
+/* Everything on the right of the masthead: create, notifications, avatar. */
+html.tt-playlist-lock ytd-topbar-menu-button-renderer,
+html.tt-playlist-lock ytd-notification-topbar-button-renderer,
+html.tt-playlist-lock #avatar-btn {
+  display: none !important;
+}
+
+/* Keep the logo in place so the masthead doesn't collapse, but make it inert —
+   the background gate would bounce the click anyway, and the bounce flickers. */
+html.tt-playlist-lock ytd-topbar-logo-renderer,
+html.tt-playlist-lock #logo {
+  pointer-events: none !important;
+  opacity: 0.55;
+}
