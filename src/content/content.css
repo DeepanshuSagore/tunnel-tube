@@ -1,0 +1,3 @@
+/* Inert on purpose. Every rule added from Stage 4 onwards must be gated behind
+   html.tt-playlist-lock (or a sibling state class) so this file changes nothing
+   while the extension is off. */
