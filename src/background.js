@@ -1,7 +1,7 @@
 // Service worker: navigation gate + badge. MV3 kills it after ~30s idle, so
 // never keep state in a module-level variable here — always read chrome.storage.
 
-import { getSettings, onSettingsChanged } from './storage.js';
+import { getSettings, getPlaylistCache, onSettingsChanged } from './storage.js';
 import { shouldRedirect } from './matcher.js';
 
 const BADGE_ON = 'ON';
@@ -25,7 +25,8 @@ async function paintBadge(settings = null) {
  */
 async function gateNavigation({ tabId, frameId, url }) {
   if (frameId !== 0) return; // main frame only; embeds and ads live in subframes
-  const target = shouldRedirect(url, await getSettings());
+  const [settings, cache] = await Promise.all([getSettings(), getPlaylistCache()]);
+  const target = shouldRedirect(url, settings, cache);
   if (!target) return;
   try {
     await chrome.tabs.update(tabId, { url: target });
@@ -40,9 +41,12 @@ chrome.webNavigation.onHistoryStateUpdated.addListener(gateNavigation, YOUTUBE_F
 
 /** Pull every open YouTube tab back into the tunnel — used when the lock is switched on. */
 async function sweepOpenTabs(settings) {
-  const tabs = await chrome.tabs.query({ url: '*://*.youtube.com/*' });
+  const [tabs, cache] = await Promise.all([
+    chrome.tabs.query({ url: '*://*.youtube.com/*' }),
+    getPlaylistCache(),
+  ]);
   for (const tab of tabs) {
-    const target = shouldRedirect(tab.url ?? '', settings);
+    const target = shouldRedirect(tab.url ?? '', settings, cache);
     if (target) chrome.tabs.update(tab.id, { url: target }).catch(() => {});
   }
 }
