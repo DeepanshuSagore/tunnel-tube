@@ -17,6 +17,14 @@
       <span class="tt-state" id="tt-state">off</span>
     </label>
 
+    <section class="tt-lock" id="tt-lock" hidden>
+      <p class="tt-lock__msg" id="tt-lock-msg"></p>
+      <label class="tt-field" for="tt-unlock">
+        <span>Type <b id="tt-lock-phrase"></b> to unlock early</span>
+        <input id="tt-unlock" type="text" spellcheck="false" autocomplete="off" />
+      </label>
+    </section>
+
     <fieldset class="tt-modes" id="tt-modes">
       <legend>Lock mode</legend>
       <label>
@@ -52,6 +60,7 @@
     </section>
 
     <footer class="tt-footer">
+      <span class="tt-count" id="tt-count"></span>
       <button type="button" id="tt-options" class="tt-link">Settings</button>
     </footer>
 

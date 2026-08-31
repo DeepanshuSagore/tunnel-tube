@@ -203,3 +203,31 @@ body.is-on .tt-state {
 .tt-index.is-complete {
   color: var(--tt-on);
 }
+
+.tt-lock {
+  margin-top: 12px;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--tt-line);
+  border-radius: 8px;
+}
+
+.tt-lock__msg {
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+
+.tt-lock b {
+  color: var(--tt-fg);
+}
+
+.tt-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.tt-count {
+  color: var(--tt-muted);
+  font-size: 11px;
+}
