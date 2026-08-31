@@ -30,3 +30,102 @@ html.tt-playlist-lock #logo {
   pointer-events: none !important;
   opacity: 0.55;
 }
+
+/* --- topic lock ---------------------------------------------------------- */
+
+/* Shorts shelves have no per-video title worth matching, so they go wholesale. */
+html.tt-topic-lock.tt-block-shorts ytd-reel-shelf-renderer,
+html.tt-topic-lock.tt-block-shorts ytd-rich-shelf-renderer[is-shorts],
+html.tt-topic-lock.tt-block-shorts ytd-rich-section-renderer:has(ytd-rich-shelf-renderer[is-shorts]),
+html.tt-topic-lock.tt-block-shorts ytd-guide-entry-renderer a[title="Shorts"] {
+  display: none !important;
+}
+
+html.tt-topic-lock.tt-hide-comments #comments {
+  display: none !important;
+}
+
+/* End screens and in-player suggestions are a tunnel exit the DOM filter can't
+   reach — they're painted inside the player. */
+html.tt-topic-lock .ytp-endscreen-content,
+html.tt-topic-lock .ytp-ce-element,
+html.tt-topic-lock .ytp-pause-overlay {
+  display: none !important;
+}
+
+/* --- out-of-tunnel interstitial ------------------------------------------ */
+
+.tt-interstitial {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(9, 10, 18, 0.92);
+  color: #f2f3f7;
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.tt-interstitial__card {
+  max-width: 420px;
+  padding: 28px 30px 24px;
+  border: 1px solid #2b2f47;
+  border-radius: 14px;
+  background: #171a2e;
+  text-align: center;
+}
+
+.tt-interstitial__eyebrow {
+  margin: 0 0 10px;
+  color: #ffc857;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+}
+
+.tt-interstitial__title {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.tt-interstitial__body {
+  margin: 0 0 20px;
+  color: #c7cbdb;
+}
+
+.tt-interstitial__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.tt-interstitial__actions button {
+  padding: 9px 18px;
+  border: 1px solid #2b2f47;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tt-interstitial__actions button[data-tt-action="home"] {
+  border-color: transparent;
+  background: #ffc857;
+  color: #171a2e;
+}
+
+.tt-interstitial__actions button:hover {
+  opacity: 0.9;
+}
+
+.tt-interstitial__hint {
+  margin: 18px 0 0;
+  color: #9aa0b4;
+  font-size: 11px;
+}

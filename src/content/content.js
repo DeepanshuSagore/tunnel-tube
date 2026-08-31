@@ -1,32 +1,61 @@
 // Runs at document_start on www.youtube.com.
 //
 // Declarative content scripts can't be ES modules, so this file talks to
-// chrome.storage directly instead of importing src/storage.js. Keep the key
-// names in step with DEFAULTS there.
+// chrome.storage directly instead of importing src/storage.js. matcher.js is
+// pulled in by dynamic import (it's web-accessible) rather than copied, so the
+// matching rules have exactly one tested implementation.
 //
-// Two jobs:
+// Three jobs:
 //  1. Mirror the lock state onto <html> so content.css can stay inert while the
-//     extension is off. Feed filtering lands in Stage 6.
-//  2. While you're on your playlist page, scrape the video IDs into
-//     chrome.storage.local so the navigation gate can tell a real playlist entry
-//     from a hand-edited v=.
+//     extension is off.
+//  2. On your playlist page, scrape video IDs into chrome.storage.local so the
+//     navigation gate can tell a real playlist entry from a hand-edited v=.
+//  3. In topic mode, hide feed items that miss the profile and cover an
+//     out-of-tunnel video with an interstitial.
 
-const LOCK_CLASS = 'tt-playlist-lock';
-const KEYS = ['enabled', 'mode', 'playlist'];
+const KEYS = ['enabled', 'mode', 'topic', 'playlist'];
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const SCRAPE_DEBOUNCE_MS = 400;
+const FILTER_DEBOUNCE_MS = 150;
+const HIDDEN_ATTR = 'data-tt-hidden';
 
-// YouTube renames its custom elements regularly, so the scrape leans on hrefs —
-// those are stable — and only uses element names to find the header text.
+// YouTube renames its custom elements regularly. This is the one place to fix
+// when the lock stops catching something — treat a breakage as a 5-minute job.
 const SELECTORS = {
   watchLinks: 'a[href*="watch?v="]',
   rows: 'ytd-playlist-video-renderer, ytd-playlist-panel-video-renderer, yt-lockup-view-model, ytd-video-renderer',
   rowTitle: '#video-title, .yt-lockup-metadata-view-model__title, h3',
   header: 'ytd-playlist-header-renderer, ytd-playlist-sidebar-primary-info-renderer, yt-page-header-renderer',
+  // Feed surfaces: home grid, search results, sidebar / up-next.
+  feedItems: [
+    'ytd-rich-item-renderer',
+    'ytd-video-renderer',
+    'ytd-channel-renderer',
+    'ytd-compact-video-renderer',
+    'ytd-grid-video-renderer',
+    'yt-lockup-view-model',
+  ].join(', '),
+  itemTitle: '#video-title, .yt-lockup-metadata-view-model__title, h3 a, h3',
+  itemChannel: 'ytd-channel-name, #channel-name, .yt-content-metadata-view-model__metadata-row',
+  watchTitle: '#title h1, h1.ytd-watch-metadata, h1.title',
+  watchChannel: '#owner #channel-name, ytd-video-owner-renderer #channel-name, #upload-info #channel-name',
+  player: 'video',
 };
 
-let scrapeTimer = null;
+const CLASSES = {
+  playlist: 'tt-playlist-lock',
+  topic: 'tt-topic-lock',
+  comments: 'tt-hide-comments',
+  shorts: 'tt-block-shorts',
+};
+
+let settings = null;
+let matcher = null;
 let observer = null;
+let scrapeTimer = null;
+let filterTimer = null;
+let interstitial = null;
+let pauseHandler = null;
 
 /**
  * Reloading the extension orphans the copy of this script already running in an
@@ -43,24 +72,153 @@ function shutDown() {
   observer?.disconnect();
   observer = null;
   clearTimeout(scrapeTimer);
+  clearTimeout(filterTimer);
   window.removeEventListener('yt-navigate-finish', sync);
 }
 
-function applyLockState(settings) {
-  const locked = Boolean(settings.enabled && settings.mode === 'playlist' && settings.playlist?.id);
-  document.documentElement.classList.toggle(LOCK_CLASS, locked);
+// matcher.js is an ES module and this file isn't, so it arrives asynchronously.
+// Everything that needs it checks for it first; the observer re-runs once it lands.
+const matcherReady = import(chrome.runtime.getURL('src/matcher.js'))
+  .then((module) => { matcher = module; })
+  .catch((error) => console.warn('[TunnelTube] matcher unavailable:', error.message));
+
+const text = (node) => (node?.getAttribute?.('title') || node?.textContent || '').trim();
+const path = () => location.pathname.replace(/\/+$/, '') || '/';
+const topicActive = () => Boolean(settings?.enabled && settings.mode === 'topic');
+
+function applyLockState() {
+  const root = document.documentElement;
+  const playlistLock = Boolean(settings?.enabled && settings.mode === 'playlist' && settings.playlist?.id);
+  const topic = settings?.topic ?? {};
+  root.classList.toggle(CLASSES.playlist, playlistLock);
+  root.classList.toggle(CLASSES.topic, topicActive());
+  root.classList.toggle(CLASSES.comments, topicActive() && Boolean(topic.hideComments));
+  root.classList.toggle(CLASSES.shorts, topicActive() && Boolean(topic.blockShorts));
 }
+
+// --- topic filtering ------------------------------------------------------
+
+/**
+ * Hide, don't remove: YouTube's virtual scroller reuses feed nodes, and pulling
+ * them out from under it wedges the feed. A recycled node gets re-judged on the
+ * next pass, which is why every run sets the state either way rather than only
+ * hiding.
+ */
+function setHidden(node, hidden) {
+  if (hidden) {
+    if (node.hasAttribute(HIDDEN_ATTR)) return;
+    node.setAttribute(HIDDEN_ATTR, '1');
+    node.style.display = 'none';
+  } else if (node.hasAttribute(HIDDEN_ATTR)) {
+    node.removeAttribute(HIDDEN_ATTR);
+    node.style.display = '';
+  }
+}
+
+/** Put everything back. Turning the lock off must not need a reload. */
+function restoreAll() {
+  for (const node of document.querySelectorAll(`[${HIDDEN_ATTR}]`)) setHidden(node, false);
+  removeInterstitial();
+}
+
+function filterFeed() {
+  const topic = settings.topic ?? {};
+  for (const node of document.querySelectorAll(SELECTORS.feedItems)) {
+    const title = text(node.querySelector(SELECTORS.itemTitle));
+    // No title yet means the node is still a placeholder — judging it now would
+    // hide a video that hasn't rendered.
+    if (!title) continue;
+    const channel = text(node.querySelector(SELECTORS.itemChannel));
+    setHidden(node, !matcher.matchesTopic({ title, channel }, topic));
+  }
+}
+
+// --- out-of-tunnel interstitial -------------------------------------------
+
+function removeInterstitial() {
+  if (!interstitial) return;
+  interstitial.remove();
+  interstitial = null;
+  const video = document.querySelector(SELECTORS.player);
+  if (video && pauseHandler) video.removeEventListener('play', pauseHandler);
+  pauseHandler = null;
+}
+
+function showInterstitial(title) {
+  const video = document.querySelector(SELECTORS.player);
+  video?.pause();
+
+  if (interstitial) return;
+
+  const label = (settings.topic?.label || '').trim();
+  interstitial = document.createElement('div');
+  interstitial.className = 'tt-interstitial';
+  interstitial.innerHTML = `
+    <div class="tt-interstitial__card">
+      <p class="tt-interstitial__eyebrow">TunnelTube</p>
+      <h2 class="tt-interstitial__title">Not part of your tunnel</h2>
+      <p class="tt-interstitial__body"></p>
+      <div class="tt-interstitial__actions">
+        <button type="button" data-tt-action="back">Go back</button>
+        <button type="button" data-tt-action="home">My feed</button>
+      </div>
+      <p class="tt-interstitial__hint">Turn TunnelTube off from the toolbar if you meant to watch this.</p>
+    </div>`;
+  // textContent, not innerHTML — a video title is untrusted markup.
+  interstitial.querySelector('.tt-interstitial__body').textContent = label
+    ? `"${title}" doesn't match ${label}.`
+    : `"${title}" doesn't match your topic profile.`;
+
+  interstitial.addEventListener('click', (event) => {
+    const action = event.target.closest('[data-tt-action]')?.dataset.ttAction;
+    if (action === 'back') history.back();
+    if (action === 'home') location.href = '/';
+  });
+
+  document.documentElement.append(interstitial);
+
+  // YouTube's autoplay will happily start it again behind the overlay.
+  pauseHandler = () => video?.pause();
+  video?.addEventListener('play', pauseHandler);
+}
+
+function guardWatchPage() {
+  if (path() !== '/watch') return removeInterstitial();
+
+  const title = text(document.querySelector(SELECTORS.watchTitle));
+  if (!title) return; // metadata hasn't landed; don't flash the overlay
+
+  const channel = text(document.querySelector(SELECTORS.watchChannel));
+  if (matcher.matchesTopic({ title, channel }, settings.topic ?? {})) return removeInterstitial();
+  showInterstitial(title);
+}
+
+/** One debounced pass over everything topic mode cares about. */
+function runFilters() {
+  if (!matcher || !topicActive()) return;
+  filterFeed();
+  guardWatchPage();
+}
+
+function scheduleFilter() {
+  clearTimeout(filterTimer);
+  // Debounce, then wait for a frame: infinite scroll fires mutations by the
+  // hundred and this would otherwise melt the CPU.
+  filterTimer = setTimeout(() => requestAnimationFrame(runFilters), FILTER_DEBOUNCE_MS);
+}
+
+// --- playlist scraping ----------------------------------------------------
 
 /** The playlist ID this page is showing, if it's a /playlist page. */
 function currentPlaylistId() {
-  if (location.pathname.replace(/\/+$/, '') !== '/playlist') return '';
+  if (path() !== '/playlist') return '';
   return new URLSearchParams(location.search).get('list') ?? '';
 }
 
 /** How many videos YouTube says the playlist holds — used to know when a scrape is complete. */
 function statedVideoCount() {
-  const text = document.querySelector(SELECTORS.header)?.textContent ?? '';
-  const match = text.match(/([\d,]+)\s*videos?/i);
+  const header = document.querySelector(SELECTORS.header)?.textContent ?? '';
+  const match = header.match(/([\d,]+)\s*videos?/i);
   return match ? Number(match[1].replace(/,/g, '')) : null;
 }
 
@@ -100,9 +258,6 @@ function scrapeRendered(playlistId) {
     }
   };
 
-  const textOf = (node) =>
-    (node?.getAttribute?.('title') || node?.textContent || node?.getAttribute?.('aria-label') || '').trim();
-
   for (const anchor of document.querySelectorAll(SELECTORS.watchLinks)) {
     let list;
     try {
@@ -111,7 +266,7 @@ function scrapeRendered(playlistId) {
       continue;
     }
     if (list !== playlistId) continue;
-    record(videoIdFrom(anchor.href), textOf(anchor));
+    record(videoIdFrom(anchor.href), text(anchor) || anchor.getAttribute('aria-label') || '');
   }
 
   for (const row of document.querySelectorAll(SELECTORS.rows)) {
@@ -121,7 +276,7 @@ function scrapeRendered(playlistId) {
       if (id) break;
     }
     if (!id || titles[id] === undefined || titles[id]) continue; // unknown, or already titled
-    const title = textOf(row.querySelector(SELECTORS.rowTitle)) || textOf(row);
+    const title = text(row.querySelector(SELECTORS.rowTitle)) || text(row);
     if (title) titles[id] = title;
   }
 
@@ -145,6 +300,7 @@ async function refreshCache(playlistId) {
   } catch {
     return shutDown();
   }
+
   const stale = !playlistCache
     || playlistCache.id !== playlistId
     || Date.now() - (playlistCache.fetchedAt ?? 0) > CACHE_TTL_MS;
@@ -181,45 +337,58 @@ async function refreshCache(playlistId) {
   }
 }
 
-function scheduleScrape(playlistId) {
+function scheduleScrape() {
+  const playlistId = settings?.playlist?.id ?? '';
+  if (!playlistId || currentPlaylistId() !== playlistId) return;
   clearTimeout(scrapeTimer);
   scrapeTimer = setTimeout(() => refreshCache(playlistId), SCRAPE_DEBOUNCE_MS);
 }
 
-/** Watch the playlist page while it lazy-loads more rows; stop watching elsewhere. */
-function watchPlaylistPage(settings) {
-  const configured = settings.playlist?.id ?? '';
-  const onPlaylist = configured && currentPlaylistId() === configured;
+// --- wiring ---------------------------------------------------------------
 
-  observer?.disconnect();
-  observer = null;
-  if (!onPlaylist) return;
+/** One observer for both jobs: feed items and playlist rows arrive the same way. */
+function ensureObserver() {
+  const wanted = topicActive() || Boolean(currentPlaylistId() && currentPlaylistId() === settings?.playlist?.id);
 
-  scheduleScrape(configured);
+  if (!wanted) {
+    observer?.disconnect();
+    observer = null;
+    return;
+  }
+  if (observer) return;
+
   const root = document.querySelector('ytd-app') ?? document.documentElement;
-  observer = new MutationObserver(() => scheduleScrape(configured));
+  observer = new MutationObserver(() => {
+    scheduleScrape();
+    scheduleFilter();
+  });
   observer.observe(root, { childList: true, subtree: true });
 }
 
 async function sync() {
   if (isOrphaned()) return shutDown();
 
-  let settings;
   try {
     settings = await chrome.storage.sync.get(KEYS);
   } catch {
     return shutDown();
   }
-  applyLockState(settings);
-  watchPlaylistPage(settings);
+
+  applyLockState();
+  if (!topicActive()) restoreAll();
+  ensureObserver();
+  scheduleScrape();
+  scheduleFilter();
 }
 
 sync();
+matcherReady.then(scheduleFilter);
 
 // Toggling from the popup must take effect without a reload, in every open tab.
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'sync') return;
   if (!KEYS.some((key) => key in changes)) return;
+  restoreAll(); // re-judge from scratch; the profile may have narrowed or widened
   sync();
 });
 
