@@ -142,9 +142,9 @@ export function suggestKeywords(titles, limit = 10) {
       counts.set(word, (counts.get(word) ?? 0) + 1);
     }
   }
-  return [...counts.entries()]
-    .filter(([, count]) => count > 1)
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .slice(0, limit)
-    .map(([word]) => word);
+  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  // Words that recur across titles are the real topic; fall back to plain
+  // frequency for a short playlist where nothing repeats.
+  const repeated = ranked.filter(([, count]) => count > 1);
+  return (repeated.length ? repeated : ranked).slice(0, limit).map(([word]) => word);
 }

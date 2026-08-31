@@ -44,7 +44,14 @@ function statedVideoCount() {
   return match ? Number(match[1].replace(/,/g, '')) : null;
 }
 
-/** Every video ID linked on this page that belongs to the playlist, with titles. */
+/**
+ * Every video ID linked on this page that belongs to the playlist, with titles.
+ *
+ * Each row links the same video twice — thumbnail first, then the title — and
+ * the thumbnail anchor has no text. So don't stop at the first link for an ID:
+ * keep looking until one of them yields a non-empty title. aria-label is the
+ * last resort because it bolts on view counts and durations.
+ */
 function scrapeRendered(playlistId) {
   const videoIds = [];
   const titles = {};
@@ -57,9 +64,21 @@ function scrapeRendered(playlistId) {
     }
     if (url.searchParams.get('list') !== playlistId) continue;
     const id = url.searchParams.get('v');
-    if (!id || titles[id] !== undefined) continue;
-    videoIds.push(id);
-    titles[id] = (anchor.getAttribute('title') || anchor.textContent || '').trim();
+    if (!id) continue;
+
+    const title = (
+      anchor.getAttribute('title') ||
+      anchor.textContent ||
+      anchor.getAttribute('aria-label') ||
+      ''
+    ).trim();
+
+    if (titles[id] === undefined) {
+      videoIds.push(id);
+      titles[id] = title;
+    } else if (!titles[id] && title) {
+      titles[id] = title;
+    }
   }
   return { videoIds, titles };
 }
@@ -80,15 +99,28 @@ async function refreshCache(playlistId) {
   const base = stale ? { videoIds: [], titles: {} } : playlistCache;
 
   const merged = [...new Set([...base.videoIds, ...videoIds])];
+  const mergedTitles = { ...base.titles };
+  let titlesChanged = false;
+  for (const [id, title] of Object.entries(titles)) {
+    if (!title || mergedTitles[id] === title) continue;
+    mergedTitles[id] = title;
+    titlesChanged = true;
+  }
+
   const next = {
     id: playlistId,
     fetchedAt: stale ? Date.now() : (playlistCache.fetchedAt ?? Date.now()),
     count: statedVideoCount() ?? playlistCache?.count ?? null,
     videoIds: merged,
-    titles: { ...base.titles, ...titles },
+    titles: mergedTitles,
   };
 
-  if (!stale && merged.length === base.videoIds.length && next.count === playlistCache.count) return;
+  // Nothing new to store — bail before writing, or the observer would loop.
+  const unchanged = !stale
+    && merged.length === base.videoIds.length
+    && !titlesChanged
+    && next.count === playlistCache.count;
+  if (unchanged) return;
   await chrome.storage.local.set({ playlistCache: next });
 }
 
