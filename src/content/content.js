@@ -20,6 +20,8 @@ const SCRAPE_DEBOUNCE_MS = 400;
 // those are stable — and only uses element names to find the header text.
 const SELECTORS = {
   watchLinks: 'a[href*="watch?v="]',
+  rows: 'ytd-playlist-video-renderer, ytd-playlist-panel-video-renderer, yt-lockup-view-model, ytd-video-renderer',
+  rowTitle: '#video-title, .yt-lockup-metadata-view-model__title, h3',
   header: 'ytd-playlist-header-renderer, ytd-playlist-sidebar-primary-info-renderer, yt-page-header-renderer',
 };
 
@@ -44,42 +46,67 @@ function statedVideoCount() {
   return match ? Number(match[1].replace(/,/g, '')) : null;
 }
 
+/** The video ID an href points at, or '' if it isn't a /watch link. */
+function videoIdFrom(href) {
+  try {
+    const url = new URL(href, location.origin);
+    if (url.pathname.replace(/\/+$/, '') !== '/watch') return '';
+    return url.searchParams.get('v') ?? '';
+  } catch {
+    return '';
+  }
+}
+
 /**
- * Every video ID linked on this page that belongs to the playlist, with titles.
+ * Every video ID on this page that belongs to the playlist, with titles.
  *
- * Each row links the same video twice — thumbnail first, then the title — and
- * the thumbnail anchor has no text. So don't stop at the first link for an ID:
- * keep looking until one of them yields a non-empty title. aria-label is the
- * last resort because it bolts on view counts and durations.
+ * Two passes, because IDs and titles don't come from the same place:
+ *  - IDs come only from links carrying our list=, so a stray recommendation
+ *    can never be smuggled into the allow-list.
+ *  - Titles come from the surrounding row, since the link that carries list=
+ *    is often the thumbnail — no text — and the title link doesn't always
+ *    repeat the list parameter. Titles are only filled in for IDs the first
+ *    pass already accepted.
  */
 function scrapeRendered(playlistId) {
   const videoIds = [];
   const titles = {};
-  for (const anchor of document.querySelectorAll(SELECTORS.watchLinks)) {
-    let url;
-    try {
-      url = new URL(anchor.href, location.origin);
-    } catch {
-      continue;
-    }
-    if (url.searchParams.get('list') !== playlistId) continue;
-    const id = url.searchParams.get('v');
-    if (!id) continue;
 
-    const title = (
-      anchor.getAttribute('title') ||
-      anchor.textContent ||
-      anchor.getAttribute('aria-label') ||
-      ''
-    ).trim();
-
+  const record = (id, title) => {
+    if (!id) return;
     if (titles[id] === undefined) {
       videoIds.push(id);
       titles[id] = title;
     } else if (!titles[id] && title) {
       titles[id] = title;
     }
+  };
+
+  const textOf = (node) =>
+    (node?.getAttribute?.('title') || node?.textContent || node?.getAttribute?.('aria-label') || '').trim();
+
+  for (const anchor of document.querySelectorAll(SELECTORS.watchLinks)) {
+    let list;
+    try {
+      list = new URL(anchor.href, location.origin).searchParams.get('list');
+    } catch {
+      continue;
+    }
+    if (list !== playlistId) continue;
+    record(videoIdFrom(anchor.href), textOf(anchor));
   }
+
+  for (const row of document.querySelectorAll(SELECTORS.rows)) {
+    let id = '';
+    for (const anchor of row.querySelectorAll(SELECTORS.watchLinks)) {
+      id = videoIdFrom(anchor.href);
+      if (id) break;
+    }
+    if (!id || titles[id] === undefined || titles[id]) continue; // unknown, or already titled
+    const title = textOf(row.querySelector(SELECTORS.rowTitle)) || textOf(row);
+    if (title) titles[id] = title;
+  }
+
   return { videoIds, titles };
 }
 
