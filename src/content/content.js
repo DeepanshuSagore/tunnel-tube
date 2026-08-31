@@ -18,6 +18,7 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const SCRAPE_DEBOUNCE_MS = 400;
 const FILTER_DEBOUNCE_MS = 150;
 const HIDDEN_ATTR = 'data-tt-hidden';
+const STATS_FLUSH_MS = 2000;
 
 // YouTube renames its custom elements regularly. This is the one place to fix
 // when the lock stops catching something — treat a breakage as a 5-minute job.
@@ -56,6 +57,12 @@ let scrapeTimer = null;
 let filterTimer = null;
 let interstitial = null;
 let pauseHandler = null;
+let emptyState = null;
+let statsTimer = null;
+let pendingHidden = 0;
+// Titles already counted in this tab, so the virtual scroller recycling a node
+// can't inflate the tally.
+const countedTitles = new Set();
 
 /**
  * Reloading the extension orphans the copy of this script already running in an
@@ -73,6 +80,7 @@ function shutDown() {
   observer = null;
   clearTimeout(scrapeTimer);
   clearTimeout(filterTimer);
+  clearTimeout(statsTimer);
   window.removeEventListener('yt-navigate-finish', sync);
 }
 
@@ -118,19 +126,85 @@ function setHidden(node, hidden) {
 /** Put everything back. Turning the lock off must not need a reload. */
 function restoreAll() {
   for (const node of document.querySelectorAll(`[${HIDDEN_ATTR}]`)) setHidden(node, false);
+  emptyState?.remove();
+  emptyState = null;
   removeInterstitial();
 }
 
 function filterFeed() {
   const topic = settings.topic ?? {};
+  let hidden = 0;
+  let visible = 0;
+  let anchor = null;
+
   for (const node of document.querySelectorAll(SELECTORS.feedItems)) {
     const title = text(node.querySelector(SELECTORS.itemTitle));
     // No title yet means the node is still a placeholder — judging it now would
     // hide a video that hasn't rendered.
     if (!title) continue;
     const channel = text(node.querySelector(SELECTORS.itemChannel));
-    setHidden(node, !matcher.matchesTopic({ title, channel }, topic));
+    const pass = matcher.matchesTopic({ title, channel }, topic);
+    setHidden(node, !pass);
+
+    anchor ??= node.parentElement;
+    if (pass) {
+      visible += 1;
+    } else {
+      hidden += 1;
+      if (!countedTitles.has(title)) {
+        countedTitles.add(title);
+        pendingHidden += 1;
+      }
+    }
   }
+
+  flushStatsSoon();
+  renderEmptyState({ hidden, visible, anchor });
+}
+
+/**
+ * A feed filtered down to nothing just looks broken, so say what happened.
+ * Only when something was actually hidden — an empty page is YouTube's problem.
+ */
+function renderEmptyState({ hidden, visible, anchor }) {
+  if (!hidden || visible || !anchor) {
+    emptyState?.remove();
+    emptyState = null;
+    return;
+  }
+
+  const label = (settings.topic?.label || '').trim();
+  const message = `TunnelTube hid ${hidden} ${hidden === 1 ? 'video' : 'videos'}`
+    + (label ? ` — nothing here matches ${label}.` : ' — nothing here matches your topic profile.');
+
+  if (!emptyState) {
+    emptyState = document.createElement('div');
+    emptyState.className = 'tt-empty';
+  }
+  emptyState.textContent = message;
+  if (emptyState.parentElement !== anchor) anchor.prepend(emptyState);
+}
+
+/**
+ * Batch the "hidden this session" tally. Writing on every pass would hammer
+ * storage during infinite scroll for a number nobody reads that fast.
+ */
+function flushStatsSoon() {
+  if (!pendingHidden || statsTimer) return;
+  statsTimer = setTimeout(async () => {
+    statsTimer = null;
+    const delta = pendingHidden;
+    pendingHidden = 0;
+    if (isOrphaned()) return shutDown();
+    try {
+      const { stats } = await chrome.storage.local.get('stats');
+      await chrome.storage.local.set({
+        stats: { hidden: (stats?.hidden ?? 0) + delta, startedAt: stats?.startedAt ?? Date.now() },
+      });
+    } catch {
+      shutDown();
+    }
+  }, STATS_FLUSH_MS);
 }
 
 // --- out-of-tunnel interstitial -------------------------------------------

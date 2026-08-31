@@ -129,3 +129,14 @@ html.tt-topic-lock .ytp-pause-overlay {
   color: #9aa0b4;
   font-size: 11px;
 }
+
+.tt-empty {
+  grid-column: 1 / -1;
+  margin: 16px 0;
+  padding: 18px 20px;
+  border: 1px dashed rgba(128, 134, 160, 0.5);
+  border-radius: 12px;
+  color: #8086a0;
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  text-align: center;
+}
