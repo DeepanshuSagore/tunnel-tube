@@ -5,6 +5,7 @@
 const YOUTUBE_HOST = /(^|\.)youtube\.com$/i;
 const PLAYLIST_ID = /^[A-Za-z0-9_-]{2,}$/;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const YOUTUBE_HOME = 'https://www.youtube.com/';
 
 /** Canonical URL of a playlist page. */
 export function playlistUrl(id) {
@@ -57,16 +58,18 @@ export function isCacheStale(cache, now = Date.now()) {
  * the playlist.
  */
 export function shouldRedirect(rawUrl, settings, cache = null) {
-  if (!settings?.enabled || settings.mode !== 'playlist') return null;
-
-  const id = settings.playlist?.id;
-  if (!id) return null;
+  if (!settings?.enabled) return null;
   if (!isYouTubeUrl(rawUrl)) return null;
 
   const url = new URL(rawUrl);
   const path = url.pathname.replace(/\/+$/, '') || '/';
-  const list = url.searchParams.get('list');
 
+  if (settings.mode === 'topic') return topicRedirect(url, path, settings.topic ?? {});
+
+  const id = settings.playlist?.id;
+  if (!id) return null;
+
+  const list = url.searchParams.get('list');
   const target = playlistUrl(id);
 
   if (path === '/playlist' && list === id) return null;
@@ -80,6 +83,30 @@ export function shouldRedirect(rawUrl, settings, cache = null) {
   if (settings.playlist.strict === false && path !== '/watch') return null;
 
   return rawUrl === target ? null : target; // never bounce a page to itself
+}
+
+/**
+ * Topic mode barely redirects at all — the feed is filtered in the page instead.
+ * Only two navigations are worth intercepting: Shorts, which has no title to
+ * match on until it's already playing, and a search that hasn't been scoped to
+ * the topic yet.
+ */
+function topicRedirect(url, path, topic) {
+  if (topic.blockShorts && (path === '/shorts' || path.startsWith('/shorts/'))) {
+    return YOUTUBE_HOME;
+  }
+
+  if (topic.scopeSearch && topic.label && path === '/results') {
+    const query = url.searchParams.get('search_query') ?? '';
+    const label = normalizeText(topic.label);
+    // Already scoped — rewriting again would loop.
+    if (label && !normalizeText(query).includes(label)) {
+      url.searchParams.set('search_query', `${query} ${topic.label}`.trim());
+      return url.toString();
+    }
+  }
+
+  return null;
 }
 
 // --- topic profile --------------------------------------------------------
