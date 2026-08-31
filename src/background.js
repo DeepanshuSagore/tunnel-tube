@@ -84,8 +84,12 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
 chrome.runtime.onStartup.addListener(() => paintBadge());
 paintBadge();
 
-onSettingsChanged((settings) => {
+onSettingsChanged((settings, changes) => {
   paintBadge(settings);
   sweepOpenTabs(settings);
   syncSessionLock(settings);
+  // "Hidden this session" means since you switched the tunnel on.
+  if (changes.enabled?.newValue === true) {
+    chrome.storage.local.set({ stats: { hidden: 0, startedAt: Date.now() } });
+  }
 });
