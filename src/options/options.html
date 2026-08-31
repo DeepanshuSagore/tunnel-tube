@@ -3,9 +3,102 @@
   <head>
     <meta charset="utf-8" />
     <title>TunnelTube — Settings</title>
+    <link rel="stylesheet" href="options.css" />
   </head>
   <body>
-    <h1>TunnelTube settings</h1>
-    <p>Topic keywords, allowed channels and the playlist lock land in Stage 3.</p>
+    <main class="tt-page">
+      <header class="tt-head">
+        <img src="../../icons/icon48.png" alt="" width="32" height="32" />
+        <div>
+          <h1>TunnelTube</h1>
+          <p>Tunnel vision for YouTube. Nothing leaves this browser.</p>
+        </div>
+      </header>
+
+      <section class="tt-card">
+        <h2>Lock mode</h2>
+        <div class="tt-radios" id="tt-modes">
+          <label>
+            <input type="radio" name="tt-mode" value="topic" />
+            <span>Topic — only videos matching the profile below</span>
+          </label>
+          <label>
+            <input type="radio" name="tt-mode" value="playlist" />
+            <span>Playlist — one playlist, everything else redirects</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="tt-card">
+        <h2>Playlist lock</h2>
+        <label class="tt-field">
+          <span>Playlist URL or ID</span>
+          <input id="tt-playlist" type="text" spellcheck="false" autocomplete="off"
+                 placeholder="https://www.youtube.com/playlist?list=..." />
+        </label>
+        <p class="tt-error" id="tt-playlist-error" hidden></p>
+        <p class="tt-note" id="tt-index"></p>
+        <label class="tt-check">
+          <input id="tt-strict" type="checkbox" />
+          <span>Strict — redirect every YouTube page, not just <code>/watch</code></span>
+        </label>
+      </section>
+
+      <section class="tt-card">
+        <h2>Topic profile</h2>
+        <label class="tt-field">
+          <span>Label</span>
+          <input id="tt-label" type="text" autocomplete="off" placeholder="DSA" />
+        </label>
+        <label class="tt-field">
+          <span>Keywords <em>comma or newline separated</em></span>
+          <textarea id="tt-keywords" rows="4" spellcheck="false"
+                    placeholder="dsa, leetcode, binary search, dynamic programming"></textarea>
+        </label>
+        <button type="button" class="tt-ghost" id="tt-import">Suggest keywords from indexed playlist</button>
+        <label class="tt-field">
+          <span>Allowed channels <em>matched case-insensitively, as substrings</em></span>
+          <textarea id="tt-channels" rows="3" spellcheck="false"
+                    placeholder="takeUforward, NeetCode"></textarea>
+        </label>
+        <div class="tt-checks">
+          <label class="tt-check">
+            <input id="tt-blockShorts" type="checkbox" />
+            <span>Block Shorts</span>
+          </label>
+          <label class="tt-check">
+            <input id="tt-scopeSearch" type="checkbox" />
+            <span>Add the label to search queries</span>
+          </label>
+          <label class="tt-check">
+            <input id="tt-hideComments" type="checkbox" />
+            <span>Hide comments</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="tt-card">
+        <h2>Test the profile</h2>
+        <p class="tt-note">Paste a video title and channel to see what the topic lock would do.</p>
+        <div class="tt-row">
+          <label class="tt-field">
+            <span>Video title</span>
+            <input id="tt-test-title" type="text" autocomplete="off" placeholder="Binary Search — Part 2" />
+          </label>
+          <label class="tt-field">
+            <span>Channel</span>
+            <input id="tt-test-channel" type="text" autocomplete="off" placeholder="takeUforward" />
+          </label>
+        </div>
+        <p class="tt-verdict" id="tt-verdict" data-state="idle">Waiting for input</p>
+      </section>
+    </main>
+
+    <footer class="tt-bar">
+      <button type="button" class="tt-primary" id="tt-save">Save</button>
+      <span class="tt-status" id="tt-status" role="status"></span>
+    </footer>
+
+    <script src="options.js" type="module"></script>
   </body>
 </html>

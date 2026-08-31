@@ -1,0 +1,248 @@
+:root {
+  color-scheme: light dark;
+  --tt-bg: #f6f7fa;
+  --tt-card: #ffffff;
+  --tt-fg: #171a2e;
+  --tt-muted: #6b7080;
+  --tt-line: #e3e5ec;
+  --tt-accent: #ffc857;
+  --tt-on: #1f9d55;
+  --tt-off: #d93025;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tt-bg: #10121f;
+    --tt-card: #171a2e;
+    --tt-fg: #f2f3f7;
+    --tt-muted: #9aa0b4;
+    --tt-line: #2b2f47;
+    --tt-on: #3ddc84;
+    --tt-off: #ff6b6b;
+  }
+}
+
+body {
+  margin: 0;
+  padding: 0 0 72px;
+  background: var(--tt-bg);
+  color: var(--tt-fg);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.tt-page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 28px 20px 0;
+}
+
+.tt-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.tt-head img {
+  border-radius: 8px;
+}
+
+.tt-head h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.tt-head p {
+  margin: 2px 0 0;
+  color: var(--tt-muted);
+  font-size: 12px;
+}
+
+.tt-card {
+  margin-bottom: 16px;
+  padding: 16px 18px 18px;
+  border: 1px solid var(--tt-line);
+  border-radius: 10px;
+  background: var(--tt-card);
+}
+
+.tt-card h2 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--tt-muted);
+}
+
+.tt-field {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.tt-field > span {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tt-field em {
+  color: var(--tt-muted);
+  font-style: normal;
+  font-weight: 400;
+}
+
+.tt-field input,
+.tt-field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--tt-line);
+  border-radius: 7px;
+  background: var(--tt-bg);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.tt-field input:focus-visible,
+.tt-field textarea:focus-visible {
+  outline: 2px solid var(--tt-accent);
+  outline-offset: -1px;
+}
+
+.tt-field input[aria-invalid="true"] {
+  border-color: var(--tt-off);
+}
+
+.tt-radios label,
+.tt-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tt-radios input,
+.tt-check input {
+  accent-color: var(--tt-accent);
+  margin: 0;
+}
+
+.tt-checks {
+  margin-top: 4px;
+}
+
+.tt-row {
+  display: flex;
+  gap: 12px;
+}
+
+.tt-row .tt-field {
+  flex: 1;
+}
+
+.tt-note {
+  margin: 0 0 10px;
+  color: var(--tt-muted);
+  font-size: 12px;
+}
+
+.tt-error {
+  margin: -6px 0 10px;
+  color: var(--tt-off);
+  font-size: 12px;
+}
+
+code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--tt-bg);
+  font-size: 12px;
+}
+
+.tt-verdict {
+  margin: 4px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--tt-line);
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.tt-verdict[data-state="idle"] {
+  color: var(--tt-muted);
+  font-weight: 400;
+}
+
+.tt-verdict[data-state="pass"] {
+  border-color: var(--tt-on);
+  color: var(--tt-on);
+}
+
+.tt-verdict[data-state="block"] {
+  border-color: var(--tt-off);
+  color: var(--tt-off);
+}
+
+.tt-ghost {
+  margin: -4px 0 14px;
+  padding: 6px 10px;
+  border: 1px solid var(--tt-line);
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tt-ghost:hover:not(:disabled) {
+  border-color: var(--tt-accent);
+}
+
+.tt-ghost:disabled {
+  color: var(--tt-muted);
+  cursor: default;
+}
+
+.tt-bar {
+  position: fixed;
+  inset: auto 0 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  /* Line the bar's contents up with the 640px column above it. */
+  padding: 12px max(20px, calc(50% - 320px));
+  border-top: 1px solid var(--tt-line);
+  background: var(--tt-card);
+}
+
+
+.tt-primary {
+  padding: 8px 20px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--tt-fg);
+  color: var(--tt-card);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tt-primary:hover {
+  opacity: 0.88;
+}
+
+.tt-status {
+  color: var(--tt-on);
+  font-size: 12px;
+}
+
+.tt-status[data-state="error"] {
+  color: var(--tt-off);
+}
