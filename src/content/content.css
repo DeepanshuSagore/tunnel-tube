@@ -23,6 +23,24 @@ html.tt-playlist-lock #avatar-btn {
   display: none !important;
 }
 
+/* On /watch, the sidebar is the biggest hole in the tunnel: it's a full column
+   of whatever the algorithm fancies. Keep the playlist queue — that IS the
+   tunnel — and take out everything under it, along with the ads and merch that
+   sit in the same column. */
+html.tt-playlist-lock #related,
+html.tt-playlist-lock ytd-watch-next-secondary-results-renderer,
+html.tt-playlist-lock #player-ads,
+html.tt-playlist-lock ytd-companion-slot-renderer,
+html.tt-playlist-lock ytd-merch-shelf-renderer,
+html.tt-playlist-lock ytd-donation-shelf-renderer,
+/* End screens and in-player suggestions are painted inside the player, where no
+   DOM filter reaches. */
+html.tt-playlist-lock .ytp-endscreen-content,
+html.tt-playlist-lock .ytp-ce-element,
+html.tt-playlist-lock .ytp-pause-overlay {
+  display: none !important;
+}
+
 /* Keep the logo in place so the masthead doesn't collapse, but make it inert —
    the background gate would bounce the click anyway, and the bounce flickers. */
 html.tt-playlist-lock ytd-topbar-logo-renderer,
@@ -42,6 +60,18 @@ html.tt-topic-lock.tt-block-shorts ytd-guide-entry-renderer a[title="Shorts"] {
 }
 
 html.tt-topic-lock.tt-hide-comments #comments {
+  display: none !important;
+}
+
+/* Mixes and "radio" playlists are infinite algorithmic queues with one generic
+   title, so the keyword matcher can't judge them usefully — take them out
+   wholesale. Same for the ad and merch slots in the sidebar column. */
+html.tt-topic-lock ytd-compact-radio-renderer,
+html.tt-topic-lock yt-lockup-view-model:has(a[href*="start_radio=1"]),
+html.tt-topic-lock #player-ads,
+html.tt-topic-lock ytd-companion-slot-renderer,
+html.tt-topic-lock ytd-merch-shelf-renderer,
+html.tt-topic-lock ytd-donation-shelf-renderer {
   display: none !important;
 }
 
