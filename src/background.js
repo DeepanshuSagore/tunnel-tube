@@ -1,8 +1,8 @@
 // Service worker: navigation gate + badge. MV3 kills it after ~30s idle, so
 // never keep state in a module-level variable here — always read chrome.storage.
 
-import { getSettings, getPlaylistCache, onSettingsChanged } from './storage.js';
-import { shouldRedirect } from './matcher.js';
+import { getSettings, setSettings, getPlaylistCache, onSettingsChanged } from './storage.js';
+import { shouldRedirect, isLocked, nextLockedUntil } from './matcher.js';
 
 const BADGE_ON = 'ON';
 const BADGE_COLOR = '#1f9d55';
@@ -51,6 +51,29 @@ async function sweepOpenTabs(settings) {
   }
 }
 
+/**
+ * Arm or clear the session lock in one place, so the popup and the keyboard
+ * shortcut can't disagree about it. Switching on starts the timer; switching
+ * off clears whatever is left of it.
+ */
+async function syncSessionLock(settings) {
+  const { enabled, guard } = settings;
+  if (enabled && guard.minSessionMinutes > 0 && !guard.lockedUntil) {
+    await setSettings({ guard: { ...guard, lockedUntil: nextLockedUntil(settings) } });
+  } else if (!enabled && guard.lockedUntil) {
+    await setSettings({ guard: { ...guard, lockedUntil: null } });
+  }
+}
+
+// Alt+Shift+Y. Refuses to switch off while the session lock holds — breaking it
+// early means opening the popup and typing the phrase, which is the whole point.
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command !== 'toggle-lock') return;
+  const settings = await getSettings();
+  if (settings.enabled && isLocked(settings)) return;
+  await setSettings({ enabled: !settings.enabled });
+});
+
 chrome.runtime.onInstalled.addListener(({ reason }) => {
   console.log('[TunnelTube] installed:', reason);
   paintBadge();
@@ -64,4 +87,5 @@ paintBadge();
 onSettingsChanged((settings) => {
   paintBadge(settings);
   sweepOpenTabs(settings);
+  syncSessionLock(settings);
 });

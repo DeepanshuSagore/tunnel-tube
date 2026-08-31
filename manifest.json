@@ -55,5 +55,14 @@
         "*://*.youtube.com/*"
       ]
     }
-  ]
+  ],
+  "commands": {
+    "toggle-lock": {
+      "suggested_key": {
+        "default": "Alt+Shift+Y",
+        "mac": "Alt+Shift+Y"
+      },
+      "description": "Toggle TunnelTube on or off"
+    }
+  }
 }
