@@ -28,6 +28,24 @@ const SELECTORS = {
 let scrapeTimer = null;
 let observer = null;
 
+/**
+ * Reloading the extension orphans the copy of this script already running in an
+ * open tab: chrome.* is still there but its context is dead, and every call
+ * throws "Extension context invalidated". The observer would keep firing and
+ * spray that error across the console forever, so detect it and go quiet — the
+ * tab picks up the new script on its next reload.
+ */
+function isOrphaned() {
+  return !chrome.runtime?.id;
+}
+
+function shutDown() {
+  observer?.disconnect();
+  observer = null;
+  clearTimeout(scrapeTimer);
+  window.removeEventListener('yt-navigate-finish', sync);
+}
+
 function applyLockState(settings) {
   const locked = Boolean(settings.enabled && settings.mode === 'playlist' && settings.playlist?.id);
   document.documentElement.classList.toggle(LOCK_CLASS, locked);
@@ -116,10 +134,17 @@ function scrapeRendered(playlistId) {
  * replacing them — a cache older than the TTL starts over, to drop removed videos.
  */
 async function refreshCache(playlistId) {
+  if (isOrphaned()) return shutDown();
+
   const { videoIds, titles } = scrapeRendered(playlistId);
   if (!videoIds.length) return;
 
-  const { playlistCache } = await chrome.storage.local.get('playlistCache');
+  let playlistCache;
+  try {
+    ({ playlistCache } = await chrome.storage.local.get('playlistCache'));
+  } catch {
+    return shutDown();
+  }
   const stale = !playlistCache
     || playlistCache.id !== playlistId
     || Date.now() - (playlistCache.fetchedAt ?? 0) > CACHE_TTL_MS;
@@ -148,7 +173,12 @@ async function refreshCache(playlistId) {
     && !titlesChanged
     && next.count === playlistCache.count;
   if (unchanged) return;
-  await chrome.storage.local.set({ playlistCache: next });
+
+  try {
+    await chrome.storage.local.set({ playlistCache: next });
+  } catch {
+    shutDown();
+  }
 }
 
 function scheduleScrape(playlistId) {
@@ -172,7 +202,14 @@ function watchPlaylistPage(settings) {
 }
 
 async function sync() {
-  const settings = await chrome.storage.sync.get(KEYS);
+  if (isOrphaned()) return shutDown();
+
+  let settings;
+  try {
+    settings = await chrome.storage.sync.get(KEYS);
+  } catch {
+    return shutDown();
+  }
   applyLockState(settings);
   watchPlaylistPage(settings);
 }
