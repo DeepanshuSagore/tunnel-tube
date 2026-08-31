@@ -78,6 +78,19 @@
       </section>
 
       <section class="tt-card">
+        <h2>Session guard</h2>
+        <label class="tt-field">
+          <span>Minimum session <em>minutes the off-switch stays shut after you turn it on</em></span>
+          <input id="tt-minSession" type="number" min="0" max="480" step="5" />
+        </label>
+        <p class="tt-note">
+          0 means you can switch off any time. While the timer runs, disabling needs your
+          topic or playlist name typed into the popup. This is friction against an impulse —
+          anyone can still disable the extension from <code>chrome://extensions</code>.
+        </p>
+      </section>
+
+      <section class="tt-card">
         <h2>Test the profile</h2>
         <p class="tt-note">Paste a video title and channel to see what the topic lock would do.</p>
         <div class="tt-row">
