@@ -24,10 +24,6 @@ export const DEFAULTS = {
     title: '',
     strict: true,
   },
-  guard: {
-    minSessionMinutes: 0,
-    lockedUntil: null, // epoch ms
-  },
 };
 
 const isPlainObject = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);

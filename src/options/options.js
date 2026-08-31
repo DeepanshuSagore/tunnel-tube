@@ -20,7 +20,6 @@ const channels = el('tt-channels');
 const blockShorts = el('tt-blockShorts');
 const scopeSearch = el('tt-scopeSearch');
 const hideComments = el('tt-hideComments');
-const minSession = el('tt-minSession');
 const importButton = el('tt-import');
 const testTitle = el('tt-test-title');
 const testChannel = el('tt-test-channel');
@@ -43,7 +42,6 @@ function render(settings) {
   blockShorts.checked = settings.topic.blockShorts;
   scopeSearch.checked = settings.topic.scopeSearch;
   hideComments.checked = settings.topic.hideComments;
-  minSession.value = String(settings.guard.minSessionMinutes ?? 0);
 
   renderIndex(settings.playlist.id);
   renderVerdict();
@@ -117,15 +115,8 @@ async function handleSave() {
   }
 
   const current = await getSettings();
-  const minutes = Math.max(0, Math.min(480, Number(minSession.value) || 0));
   await setSettings({
     mode,
-    guard: {
-      ...current.guard,
-      minSessionMinutes: minutes,
-      // A shortened window shouldn't be trapped behind the old timer.
-      lockedUntil: minutes === 0 ? null : current.guard.lockedUntil,
-    },
     playlist: {
       ...current.playlist,
       id: playlistId,

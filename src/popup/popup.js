@@ -1,14 +1,5 @@
 import { getSettings, setSettings, getPlaylistCache, onSettingsChanged } from '../storage.js';
-import {
-  parsePlaylistId,
-  playlistUrl,
-  isCacheComplete,
-  isLocked,
-  lockRemainingMs,
-  formatDuration,
-  unlockPhrase,
-  matchesUnlockPhrase,
-} from '../matcher.js';
+import { parsePlaylistId, playlistUrl, isCacheComplete } from '../matcher.js';
 
 const enabled = document.getElementById('tt-enabled');
 const state = document.getElementById('tt-state');
@@ -19,18 +10,10 @@ const playlistError = document.getElementById('tt-playlist-error');
 const openPlaylist = document.getElementById('tt-open');
 const index = document.getElementById('tt-index');
 const openOptions = document.getElementById('tt-options');
-const lockPanel = document.getElementById('tt-lock');
-const lockMessage = document.getElementById('tt-lock-msg');
-const lockPhrase = document.getElementById('tt-lock-phrase');
-const unlockInput = document.getElementById('tt-unlock');
 const count = document.getElementById('tt-count');
-
-let current = null;
-let countdown = null;
 
 /** Paint the controls from settings. Called on open and on any external change. */
 function render(settings) {
-  current = settings;
   enabled.checked = settings.enabled;
   state.textContent = settings.enabled ? 'on' : 'off';
   document.body.classList.toggle('is-on', settings.enabled);
@@ -45,41 +28,7 @@ function render(settings) {
   }
   openPlaylist.disabled = !settings.playlist.id;
   renderIndex(settings.playlist.id);
-  renderLock(settings);
   renderCount();
-}
-
-/**
- * While the session lock holds, the toggle refuses to switch off and offers the
- * escape hatch instead: type your own topic or playlist name. Friction, not
- * security — chrome://extensions is always there.
- */
-function renderLock(settings) {
-  clearInterval(countdown);
-  countdown = null;
-
-  if (!isLocked(settings)) {
-    lockPanel.hidden = true;
-    enabled.disabled = false;
-    return;
-  }
-
-  lockPanel.hidden = false;
-  enabled.disabled = true;
-  lockPhrase.textContent = unlockPhrase(settings);
-
-  const tick = () => {
-    const left = lockRemainingMs(settings);
-    if (left <= 0) {
-      clearInterval(countdown);
-      countdown = null;
-      getSettings().then(render);
-      return;
-    }
-    lockMessage.textContent = `Locked on for another ${formatDuration(left)}.`;
-  };
-  tick();
-  countdown = setInterval(tick, 1000);
 }
 
 async function renderCount() {
@@ -114,24 +63,7 @@ async function renderIndex(playlistId) {
 render(await getSettings());
 
 enabled.addEventListener('change', () => {
-  // Belt and braces: the checkbox is disabled while locked, but a stale popup
-  // could still fire this.
-  if (!enabled.checked && isLocked(current)) {
-    enabled.checked = true;
-    unlockInput.focus();
-    return;
-  }
   setSettings({ enabled: enabled.checked });
-});
-
-unlockInput.addEventListener('keydown', async (event) => {
-  if (event.key !== 'Enter') return;
-  if (!matchesUnlockPhrase(unlockInput.value, current)) {
-    unlockInput.select();
-    return;
-  }
-  unlockInput.value = '';
-  await setSettings({ enabled: false, guard: { ...current.guard, lockedUntil: null } });
 });
 
 modes.addEventListener('change', (event) => {
