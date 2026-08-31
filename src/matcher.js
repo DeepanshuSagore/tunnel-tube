@@ -81,3 +81,70 @@ export function shouldRedirect(rawUrl, settings, cache = null) {
 
   return rawUrl === target ? null : target; // never bounce a page to itself
 }
+
+// --- topic profile --------------------------------------------------------
+
+const STOPWORDS = new Set([
+  'the', 'and', 'for', 'with', 'from', 'this', 'that', 'you', 'your', 'how',
+  'what', 'why', 'when', 'part', 'full', 'video', 'tutorial', 'episode', 'ep',
+  'series', 'complete', 'best', 'top', 'new', 'using', 'guide', 'all', 'into',
+]);
+
+/** Lowercase and reduce punctuation to spaces, so "C++ (part 2)!" and "c++ part 2" agree. */
+export function normalizeText(value) {
+  return String(value ?? '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}+#]+/gu, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+/** Split a comma- or newline-separated field into a trimmed, de-duplicated list. */
+export function parseList(text) {
+  const seen = new Set();
+  for (const item of String(text ?? '').split(/[,\n]/)) {
+    const trimmed = item.trim();
+    if (trimmed) seen.add(trimmed);
+  }
+  return [...seen];
+}
+
+/**
+ * Does this video belong in the topic tunnel?
+ *
+ * Deliberately dumb: any keyword appearing in the title, or any allowed channel
+ * matching the video's channel, is a pass. Scoring would be harder to debug and
+ * no more accurate. An empty profile passes everything — a tunnel with no topic
+ * configured should look broken in the options page, not blank out the feed.
+ */
+export function matchesTopic({ title = '', channel = '' } = {}, topic = {}) {
+  const keywords = (topic.keywords ?? []).map(normalizeText).filter(Boolean);
+  const channels = (topic.channels ?? []).map(normalizeText).filter(Boolean);
+  if (!keywords.length && !channels.length) return true;
+
+  const haystack = normalizeText(title);
+  if (keywords.some((keyword) => haystack.includes(keyword))) return true;
+
+  const source = normalizeText(channel);
+  return Boolean(source) && channels.some((allowed) => source.includes(allowed));
+}
+
+/**
+ * Seed keywords from a playlist's video titles — the "import from playlist"
+ * shortcut, so a 200-video course doesn't have to be described by hand.
+ * Frequency ranked, stopwords and one/two-letter noise dropped.
+ */
+export function suggestKeywords(titles, limit = 10) {
+  const counts = new Map();
+  for (const title of Object.values(titles ?? {})) {
+    for (const word of new Set(normalizeText(title).split(' '))) {
+      if (word.length < 3 || STOPWORDS.has(word) || /^\d+$/.test(word)) continue;
+      counts.set(word, (counts.get(word) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .filter(([, count]) => count > 1)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit)
+    .map(([word]) => word);
+}
